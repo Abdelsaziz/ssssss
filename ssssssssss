@@ -3,7 +3,7 @@ repeat wait() until game:IsLoaded()
 local wait = task.wait
 local spawn = task.spawn
 
--- Legacy external loading screen removed to avoid old branding text.
+loadstring(game:HttpGet("https://raw.githubusercontent.com/debunked69/Solixreworkkeysystem/refs/heads/main/Loading%20Screen"))()
 wait(0.3)
 
 local CoreGui = cloneref(game:GetService("CoreGui"))
@@ -21,7 +21,7 @@ local GameList = {
 	["994732206"]  = { id = "e2718ddebf562c5c4080dfce26b09398", keyless = false }, -- Blox Fruits
 	["1650291138"] = { id = "9b64d07193c7c2aef970d57aeb286e70", keyless = false }, -- Demon Fall
 	["1511883870"] = { id = "fefdf5088c44beb34ef52ed6b520507c", keyless = false }, -- Shindo Life
-	["6035872082"] = { id = "3bb7969a9ecb9e317b0a24681327c2e2", keyless = false }, -- Rivals
+	["6035872082"] = { id = "3bb7969a9ecb9e317b0a24681327c2e2", keyless = true }, -- Rivals
 	["245662005"]  = { id = "21ad7f491e4658e9dc9529a60c887c6e", keyless = true },  -- Jailbreak
 	["7018190066"] = { id = "98f5c64a0a9ecca29517078597bbcbdb", keyless = true },  -- Dead Rails
 	["7074860883"] = { id = "0c8fdf9bb25a6a7071731b72a90e3c69", keyless = false }, -- Arise Crossover
@@ -44,6 +44,9 @@ if not game_config then
 	return
 end
 
+local script_id = game_config.id
+local is_key_less = game_config.keyless
+
 for _, exec in ipairs({"Xeno", "Solara"}) do
 	if string.find(executor_name, exec) then
 		game:GetService("Workspace"):SetAttribute("low", true)
@@ -51,26 +54,22 @@ for _, exec in ipairs({"Xeno", "Solara"}) do
 	end
 end
 
-for _, gui_name in ipairs({"Solix ScreenGui", "Krysis ScreenGui"}) do
-	if CoreGui:FindFirstChild(gui_name) then
-		CoreGui[gui_name]:Destroy()
-	end
+if CoreGui:FindFirstChild("Solix ScreenGui") then
+	CoreGui["Solix ScreenGui"]:Destroy()
 end
 
-for _, gui_name in ipairs({"Solix Notification", "Krysis Notification"}) do
-	if CoreGui:FindFirstChild(gui_name) then
-		CoreGui[gui_name]:Destroy()
-	end
+if CoreGui:FindFirstChild("Solix Notification") then
+	CoreGui["Solix Notification"]:Destroy()
 end
 
 local Config = {
 	File = "solixhub/savedkey.txt",
-	Title = "Krysis Hub",
-	Description = "Lifetime key access is available for a one-time payment of $15 via soon.com",
-	Linkvertise = "https://soon.com/",
-	Shrink = "https://soon.com/",
-	Discord = "https://discord.gg/soon",
-	Shop = "https://soon.com/",
+	Title = "Solix Hub Free 15+ Games",
+	Description = "Lifetime key access is available for a one-time payment of $15 via solixhub.com",
+	Linkvertise = "https://ads.luarmor.net/get_key?for=Solixhub_Free_KeySystem-OWlLHDMCHADk",
+	Shrink = "https://ads.luarmor.net/get_key?for=Solix_Free_Keysystems-pqJCGTqnTsng",
+	Discord = "https://discord.gg/solixhub",
+	Shop = "https://solixhub.com/",
 }
 
 local Theme = {
@@ -86,9 +85,41 @@ local Theme = {
 	Error = Color3.fromRGB(255, 60, 60)
 }
 
+local error_messages = {
+	KEY_EXPIRED = "Your key has expired. Please renew it to continue.",
+	KEY_BANNED = "This key has been blacklisted. Contact support for assistance.",
+	KEY_HWID_LOCKED = "This key is linked to a different HWID. Please reset it via our bot.",
+	KEY_INCORRECT = "The provided key is incorrect or no longer valid.",
+	KEY_INVALID = "Invalid key format. Please check your key and try again.",
+	SCRIPT_ID_INCORRECT = "The provided script ID does not exist or has been removed.",
+	SCRIPT_ID_INVALID = "This script has been deleted by its owner.",
+	INVALID_EXECUTOR = "Invalid HWID header detected. Your executor may not be supported.",
+	SECURITY_ERROR = "Security validation failed (Cloudflare check). Please retry.",
+	TIME_ERROR = "Invalid client time detected. Please sync your system clock.",
+	UNKNOWN_ERROR = "An unknown error occurred. Please contact support."
+}
+
 local function DeleteFile(filePath)
 	if isfile(filePath) then
 		delfile(filePath)
+	end
+end
+
+local function ToTime(seconds)
+	if seconds <= 0 then
+		return "I don't know bro"
+	end
+
+	local days = math.floor(seconds / 86400)
+	local hours = math.floor((seconds % 86400) / 3600)
+	local minutes = math.floor((seconds % 3600) / 60)
+
+	if days > 0 then
+		return string.format("%dd %dh %dm", days, hours, minutes)
+	elseif hours > 0 then
+		return string.format("%dh %dm", hours, minutes)
+	else
+		return string.format("%dm", minutes)
 	end
 end
 
@@ -124,76 +155,24 @@ end
 
 local CustomFont = LoadFont()
 
-local function ExecuteMainScript()
-	local env = (type(getgenv) == "function" and getgenv()) or _G
-	local external_loader = env and env.KRYSIS_MAIN_LOADER or nil
-	if type(external_loader) == "function" then
-		local ok_loader, err_loader = pcall(external_loader)
-		if not ok_loader then
-			warn("[Krysis] Main loader error: " .. tostring(err_loader))
-			return false
-		end
-		return true
-	end
+local luarmor_api = loadstring(game:HttpGet("https://sdkapi-public.luarmor.net/library.lua"))()
 
-	local main_script_url = env and env.KRYSIS_MAIN_SCRIPT_URL or nil
-	if type(main_script_url) ~= "string" or main_script_url:gsub("%s", "") == "" then
-		return true
-	end
+luarmor_api.script_id = script_id
 
-	local ok_fetch, source = pcall(game.HttpGet, game, main_script_url)
-	if not ok_fetch or type(source) ~= "string" then
-		warn("[Krysis] Failed to fetch main script source.")
-		return false
-	end
-
-	local chunk, load_err = loadstring(source)
-	if not chunk then
-		warn("[Krysis] Failed to compile main script: " .. tostring(load_err))
-		return false
-	end
-
-	local ok_run, run_err = pcall(chunk)
-	if not ok_run then
-		warn("[Krysis] Main script runtime error: " .. tostring(run_err))
-		return false
-	end
-
-	return true
+if is_key_less then
+	pcall(function()
+		luarmor_api.load_script()
+	end)
+	return
 end
-
-local function LoadMainScript()
-	if not (
-		game_id == "3808223175" -- Jujutsu Infinite
-			or game_id == "994732206" -- Blox Fruits
-			or game_id == "1511883870" -- Shindo Life
-			or game_id == "7018190066" -- Dead Rails
-			or game_id == "1650291138" -- Demon Fall
-			or game_id == "7671049560" -- The Forge
-			or game_id == "9363735110" -- Escape Tsunami For Brainrots!
-		)
-			and Workspace:GetAttribute("low") then
-		plr:Kick("This executor is not supported for this game.")
-		return
-	end
-
-	ExecuteMainScript()
-end
-
-local USE_LEGACY_KEY_SYSTEM = false
-if not USE_LEGACY_KEY_SYSTEM then
-	-- Legacy key system removed.
-	-- Provide script source via getgenv().KRYSIS_MAIN_SCRIPT_URL or getgenv().KRYSIS_MAIN_LOADER.
-	LoadMainScript()
-else
 
 local BlurEffect = Instance.new("BlurEffect")
-BlurEffect.Name = "Krysis Blur"
+BlurEffect.Name = "Solix Blur"
 BlurEffect.Size = 0
 BlurEffect.Parent = Lighting
 
 local NotificationHolder = Instance.new("ScreenGui")
-NotificationHolder.Name = "Krysis Notification"
+NotificationHolder.Name = "Solix Notification"
 NotificationHolder.DisplayOrder = 1002
 NotificationHolder.Parent = CoreGui
 
@@ -289,7 +268,7 @@ local function Notification(title, desc, duration, color)
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "Krysis ScreenGui"
+ScreenGui.Name = "Solix ScreenGui"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.DisplayOrder = 999
@@ -520,18 +499,34 @@ end
 local function ValidateKey(key)
 	local cleaned_key = key:gsub("%s", "")
 
-	local function ApplyValidKey(valid_key, success_message)
+	if not string.match(cleaned_key, "^[A-Za-z0-9]+$") or #cleaned_key ~= 32 then
+		Notification("Error", "Invalid key format. Key must be 32 characters.", 5, Theme.Error)
+		return false
+	end
+
+	if cleaned_key ~= key then
+		Notification("Info", "Extra spaces detected, verifying without spaces...", 5, Theme.Accent)
+	end
+
+	local success, status = pcall(luarmor_api.check_key, cleaned_key)
+
+	if not success then
+		Notification("Error", "Network error. Please try again.", 5, Theme.Error)
+		return false
+	end
+
+	if status.code == "KEY_VALID" then
 		if not isfile(Config.File) then
-			pcall(writefile, Config.File, valid_key)
+			pcall(writefile, Config.File, cleaned_key)
 		else
-			if readfile(Config.File) ~= valid_key then
-				pcall(writefile, Config.File, valid_key)
+			if readfile(Config.File) ~= cleaned_key then
+				pcall(writefile, Config.File, cleaned_key)
 			end
 		end
 
-		script_key = valid_key
+		script_key = cleaned_key
 
-		Notification("Success", success_message, 5, Theme.Success)
+		Notification("Success", "Key expires in: " .. ToTime(status.data.auth_expire - os.time()), 5, Theme.Success)
 
 		wait(1.5)
 		CloseUI()
@@ -549,21 +544,24 @@ local function ValidateKey(key)
 			plr:Kick("This executor is not supported for this game.")
 		end
 
-		LoadMainScript()
+		pcall(function()
+			luarmor_api.load_script()
+		end)
 
 		return true
 	end
 
-	if cleaned_key ~= key then
-		Notification("Info", "Extra spaces detected, verifying without spaces...", 5, Theme.Accent)
+	if error_messages[status.code] then
+		if status.code == "KEY_HWID_LOCKED" or status.code == "INVALID_EXECUTOR" or status.code == "SECURITY_ERROR" or status.code == "UNKNOWN_ERROR" then
+			plr:Kick(error_messages[status.code])
+		else
+			DeleteFile(Config.File)
+			Notification("Error", error_messages[status.code], 5, Theme.Error)
+		end
+		return false
 	end
 
-	if string.lower(cleaned_key) == "test1" then
-		return ApplyValidKey(cleaned_key, "Test key accepted.")
-	end
-
-	DeleteFile(Config.File)
-	Notification("Error", "Invalid key.", 5, Theme.Error)
+	plr:Kick("Key check failed:\nCode: " .. status.code)
 	return false
 end
 
@@ -669,4 +667,3 @@ spawn(function()
 		end
 	end
 end)
-end
