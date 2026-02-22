@@ -123,8 +123,13 @@ local function LoadFont()
 end
 
 local CustomFont = LoadFont()
+local ENABLE_EXTERNAL_MAIN = false
 
 local function ExecuteMainScript()
+	if not ENABLE_EXTERNAL_MAIN then
+		return true
+	end
+
 	local env = (type(getgenv) == "function" and getgenv()) or _G
 	local external_loader = env and env.KRYSIS_MAIN_LOADER or nil
 	if type(external_loader) == "function" then
