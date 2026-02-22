@@ -138,7 +138,6 @@ local function ExecuteMainScript()
 
 	local main_script_url = env and env.KRYSIS_MAIN_SCRIPT_URL or nil
 	if type(main_script_url) ~= "string" or main_script_url:gsub("%s", "") == "" then
-		warn("[Krysis] No main script source set. Continuing without external script.")
 		return true
 	end
 
