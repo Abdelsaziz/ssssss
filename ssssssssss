@@ -44,9 +44,6 @@ if not game_config then
 	return
 end
 
-local script_id = game_config.id
-local is_key_less = game_config.keyless
-
 for _, exec in ipairs({"Xeno", "Solara"}) do
 	if string.find(executor_name, exec) then
 		game:GetService("Workspace"):SetAttribute("low", true)
@@ -70,8 +67,8 @@ local Config = {
 	File = "solixhub/savedkey.txt",
 	Title = "Krysis Hub",
 	Description = "Lifetime key access is available for a one-time payment of $15 via soon.com",
-	Linkvertise = "https://ads.luarmor.net/get_key?for=soon",
-	Shrink = "https://ads.luarmor.net/get_key?for=soon",
+	Linkvertise = "https://soon.com/",
+	Shrink = "https://soon.com/",
 	Discord = "https://discord.gg/soon",
 	Shop = "https://soon.com/",
 }
@@ -89,41 +86,9 @@ local Theme = {
 	Error = Color3.fromRGB(255, 60, 60)
 }
 
-local error_messages = {
-	KEY_EXPIRED = "Your key has expired. Please renew it to continue.",
-	KEY_BANNED = "This key has been blacklisted. Contact support for assistance.",
-	KEY_HWID_LOCKED = "This key is linked to a different HWID. Please reset it via our bot.",
-	KEY_INCORRECT = "The provided key is incorrect or no longer valid.",
-	KEY_INVALID = "Invalid key format. Please check your key and try again.",
-	SCRIPT_ID_INCORRECT = "The provided script ID does not exist or has been removed.",
-	SCRIPT_ID_INVALID = "This script has been deleted by its owner.",
-	INVALID_EXECUTOR = "Invalid HWID header detected. Your executor may not be supported.",
-	SECURITY_ERROR = "Security validation failed (Cloudflare check). Please retry.",
-	TIME_ERROR = "Invalid client time detected. Please sync your system clock.",
-	UNKNOWN_ERROR = "An unknown error occurred. Please contact support."
-}
-
 local function DeleteFile(filePath)
 	if isfile(filePath) then
 		delfile(filePath)
-	end
-end
-
-local function ToTime(seconds)
-	if seconds <= 0 then
-		return "I don't know bro"
-	end
-
-	local days = math.floor(seconds / 86400)
-	local hours = math.floor((seconds % 86400) / 3600)
-	local minutes = math.floor((seconds % 3600) / 60)
-
-	if days > 0 then
-		return string.format("%dd %dh %dm", days, hours, minutes)
-	elseif hours > 0 then
-		return string.format("%dh %dm", hours, minutes)
-	else
-		return string.format("%dm", minutes)
 	end
 end
 
@@ -159,64 +124,42 @@ end
 
 local CustomFont = LoadFont()
 
-local luarmor_api = loadstring(game:HttpGet("https://sdkapi-public.luarmor.net/library.lua"))()
-
-luarmor_api.script_id = script_id
-
-local function CleanKey(raw_key)
-	if type(raw_key) ~= "string" then
-		return nil
-	end
-
-	local cleaned_key = raw_key:gsub("%s", "")
-	if cleaned_key == "" then
-		return nil
-	end
-
-	return cleaned_key
-end
-
-local function ResolveLuarmorKey()
+local function ExecuteMainScript()
 	local env = (type(getgenv) == "function" and getgenv()) or _G
-	local runtime_key = env and (env.KRYSIS_LUARMOR_KEY or env.LUARMOR_KEY or env.SCRIPT_KEY) or nil
-	local cleaned_runtime_key = CleanKey(runtime_key)
-	if cleaned_runtime_key then
-		return cleaned_runtime_key
-	end
-
-	if isfile(Config.File) then
-		local ok, saved_key = pcall(readfile, Config.File)
-		if ok then
-			return CleanKey(saved_key)
+	local external_loader = env and env.KRYSIS_MAIN_LOADER or nil
+	if type(external_loader) == "function" then
+		local ok_loader, err_loader = pcall(external_loader)
+		if not ok_loader then
+			plr:Kick("Main loader error:\n" .. tostring(err_loader))
+			return false
 		end
-	end
-
-	return nil
-end
-
-local function EnsureLuarmorKey()
-	if is_key_less then
 		return true
 	end
 
-	local key_to_check = ResolveLuarmorKey()
-	if not key_to_check then
-		plr:Kick("No script key found. Set getgenv().KRYSIS_LUARMOR_KEY before executing.")
+	local main_script_url = env and env.KRYSIS_MAIN_SCRIPT_URL or nil
+	if type(main_script_url) ~= "string" or main_script_url:gsub("%s", "") == "" then
+		plr:Kick("No main script source found. Set getgenv().KRYSIS_MAIN_SCRIPT_URL or KRYSIS_MAIN_LOADER.")
 		return false
 	end
 
-	local success, status = pcall(luarmor_api.check_key, key_to_check)
-	if not success then
-		plr:Kick("Key check failed due to a network error.")
+	local ok_fetch, source = pcall(game.HttpGet, game, main_script_url)
+	if not ok_fetch or type(source) ~= "string" then
+		plr:Kick("Failed to fetch main script source.")
 		return false
 	end
 
-	if type(status) ~= "table" or status.code ~= "KEY_VALID" then
-		plr:Kick("Key check failed:\nCode: " .. tostring(status and status.code or "UNKNOWN_ERROR"))
+	local chunk, load_err = loadstring(source)
+	if not chunk then
+		plr:Kick("Failed to compile main script:\n" .. tostring(load_err))
 		return false
 	end
 
-	pcall(writefile, Config.File, key_to_check)
+	local ok_run, run_err = pcall(chunk)
+	if not ok_run then
+		plr:Kick("Main script runtime error:\n" .. tostring(run_err))
+		return false
+	end
+
 	return true
 end
 
@@ -235,18 +178,14 @@ local function LoadMainScript()
 		return
 	end
 
-	pcall(function()
-		luarmor_api.load_script()
-	end)
+	ExecuteMainScript()
 end
 
 local USE_LEGACY_KEY_SYSTEM = false
 if not USE_LEGACY_KEY_SYSTEM then
 	-- Legacy key system removed.
-	-- Provide Luarmor key from your own key system via: getgenv().KRYSIS_LUARMOR_KEY = "your_key"
-	if EnsureLuarmorKey() then
-		LoadMainScript()
-	end
+	-- Provide script source via getgenv().KRYSIS_MAIN_SCRIPT_URL or getgenv().KRYSIS_MAIN_LOADER.
+	LoadMainScript()
 else
 
 local BlurEffect = Instance.new("BlurEffect")
@@ -611,9 +550,7 @@ local function ValidateKey(key)
 			plr:Kick("This executor is not supported for this game.")
 		end
 
-		pcall(function()
-			luarmor_api.load_script()
-		end)
+		LoadMainScript()
 
 		return true
 	end
@@ -626,33 +563,8 @@ local function ValidateKey(key)
 		return ApplyValidKey(cleaned_key, "Test key accepted.")
 	end
 
-	if not string.match(cleaned_key, "^[A-Za-z0-9]+$") or #cleaned_key ~= 32 then
-		Notification("Error", "Invalid key format. Key must be 32 characters.", 5, Theme.Error)
-		return false
-	end
-
-	local success, status = pcall(luarmor_api.check_key, cleaned_key)
-
-	if not success then
-		Notification("Error", "Network error. Please try again.", 5, Theme.Error)
-		return false
-	end
-
-	if status.code == "KEY_VALID" then
-		return ApplyValidKey(cleaned_key, "Key expires in: " .. ToTime(status.data.auth_expire - os.time()))
-	end
-
-	if error_messages[status.code] then
-		if status.code == "KEY_HWID_LOCKED" or status.code == "INVALID_EXECUTOR" or status.code == "SECURITY_ERROR" or status.code == "UNKNOWN_ERROR" then
-			plr:Kick(error_messages[status.code])
-		else
-			DeleteFile(Config.File)
-			Notification("Error", error_messages[status.code], 5, Theme.Error)
-		end
-		return false
-	end
-
-	plr:Kick("Key check failed:\nCode: " .. status.code)
+	DeleteFile(Config.File)
+	Notification("Error", "Invalid key.", 5, Theme.Error)
 	return false
 end
 
