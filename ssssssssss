@@ -163,6 +163,63 @@ local luarmor_api = loadstring(game:HttpGet("https://sdkapi-public.luarmor.net/l
 
 luarmor_api.script_id = script_id
 
+local function CleanKey(raw_key)
+	if type(raw_key) ~= "string" then
+		return nil
+	end
+
+	local cleaned_key = raw_key:gsub("%s", "")
+	if cleaned_key == "" then
+		return nil
+	end
+
+	return cleaned_key
+end
+
+local function ResolveLuarmorKey()
+	local env = (type(getgenv) == "function" and getgenv()) or _G
+	local runtime_key = env and (env.KRYSIS_LUARMOR_KEY or env.LUARMOR_KEY or env.SCRIPT_KEY) or nil
+	local cleaned_runtime_key = CleanKey(runtime_key)
+	if cleaned_runtime_key then
+		return cleaned_runtime_key
+	end
+
+	if isfile(Config.File) then
+		local ok, saved_key = pcall(readfile, Config.File)
+		if ok then
+			return CleanKey(saved_key)
+		end
+	end
+
+	return nil
+end
+
+local function EnsureLuarmorKey()
+	if is_key_less then
+		return true
+	end
+
+	local key_to_check = ResolveLuarmorKey()
+	if not key_to_check then
+		plr:Kick("No script key found. Set getgenv().KRYSIS_LUARMOR_KEY before executing.")
+		return false
+	end
+
+	local success, status = pcall(luarmor_api.check_key, key_to_check)
+	if not success then
+		plr:Kick("Key check failed due to a network error.")
+		return false
+	end
+
+	if type(status) ~= "table" or status.code ~= "KEY_VALID" then
+		plr:Kick("Key check failed:\nCode: " .. tostring(status and status.code or "UNKNOWN_ERROR"))
+		return false
+	end
+
+	pcall(writefile, Config.File, key_to_check)
+	return true
+end
+
 local function LoadMainScript()
 	if not (
 		game_id == "3808223175" -- Jujutsu Infinite
@@ -186,8 +243,10 @@ end
 local USE_LEGACY_KEY_SYSTEM = false
 if not USE_LEGACY_KEY_SYSTEM then
 	-- Legacy key system removed.
-	-- Insert your own key system before this call if needed.
-	LoadMainScript()
+	-- Provide Luarmor key from your own key system via: getgenv().KRYSIS_LUARMOR_KEY = "your_key"
+	if EnsureLuarmorKey() then
+		LoadMainScript()
+	end
 else
 
 local BlurEffect = Instance.new("BlurEffect")
